@@ -1,0 +1,9 @@
+playwright
+pydantic
+pydantic-settings
+python-dotenv
+PyYAML
+fastapi
+uvicorn
+openai
+pdfplumber

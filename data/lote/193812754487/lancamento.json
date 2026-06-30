@@ -1,0 +1,29 @@
+{
+  "condominio": "CONDOMINIO TESTE - RAFAEL",
+  "competencia": "05/2026",
+  "fornecedor_codigo": "0664",
+  "fornecedor_nome": "ARTGAZ COMERCIO DE GAS LTDA",
+  "documento_referencia": "REF. 05/2026",
+  "valor_liquido": 524.29,
+  "emissao": "2026-05-05",
+  "vencimento": "2026-05-10",
+  "prev_pagto": "2026-05-10",
+  "complemento": "REABASTECIMENTO DE GÁS REF. 05/2026",
+  "filtro_descricao": null,
+  "anexos": [
+    "C:\\Users\\Lenovo\\Downloads\\almah-meka-automacao\\almah-meka-automacao\\data\\lote\\193812754487\\BOLETO ARTGAZ 524,29.pdf",
+    "C:\\Users\\Lenovo\\Downloads\\almah-meka-automacao\\almah-meka-automacao\\data\\lote\\193812754487\\C. ARTGAZ 524,29.pdf",
+    "C:\\Users\\Lenovo\\Downloads\\almah-meka-automacao\\almah-meka-automacao\\data\\lote\\193812754487\\NF ARTGAZ 524,29.pdf"
+  ],
+  "_extracao": {
+    "confiavel": true,
+    "precisa_revisao": false,
+    "avisos": [],
+    "numero_nf": "000576928",
+    "fontes": {
+      "boleto": "BOLETO ARTGAZ 524,29.pdf",
+      "comprovante": "C. ARTGAZ 524,29.pdf",
+      "nf": "NF ARTGAZ 524,29.pdf"
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "condominio": "CONDOMINIO EDIFICIO CARAVELAS",
+  "competencia": "06/2026",
+  "fornecedor_codigo": "0888",
+  "fornecedor_nome": "HIDROFORT TUBOS E CONEXOES LTDA",
+  "documento_referencia": "REF. 06/2026",
+  "valor_liquido": 1770.0,
+  "emissao": "2026-05-25",
+  "vencimento": "2026-06-09",
+  "prev_pagto": "2026-06-09",
+  "complemento": "REF. 06/2026",
+  "filtro_descricao": null,
+  "anexos": [
+    "C:\\Users\\Lenovo\\Downloads\\almah-meka-automacao\\almah-meka-automacao\\data\\lote\\093145556768\\CARAVELAS BOLETO HIDROFORT 1.770,00.pdf",
+    "C:\\Users\\Lenovo\\Downloads\\almah-meka-automacao\\almah-meka-automacao\\data\\lote\\093145556768\\CARAVELAS C. HIDROFORT 1.770,00.pdf",
+    "C:\\Users\\Lenovo\\Downloads\\almah-meka-automacao\\almah-meka-automacao\\data\\lote\\093145556768\\CARAVELAS NF HIDROFOR 1.770,00.pdf"
+  ],
+  "_extracao": {
+    "confiavel": true,
+    "precisa_revisao": false,
+    "avisos": [],
+    "numero_nf": "000105287",
+    "fontes": {
+      "boleto": "CARAVELAS BOLETO HIDROFORT 1.770,00.pdf",
+      "comprovante": "CARAVELAS C. HIDROFORT 1.770,00.pdf",
+      "nf": "CARAVELAS NF HIDROFOR 1.770,00.pdf"
+    }
+  }
+}

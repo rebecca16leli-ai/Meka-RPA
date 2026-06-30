@@ -1,0 +1,29 @@
+{
+  "condominio": "CONDOMINIO TESTE - RAFAEL",
+  "competencia": "05/2026",
+  "fornecedor_codigo": "0664",
+  "fornecedor_nome": "ARTGAZ COMERCIO DE GAS LTDA",
+  "documento_referencia": "REF. 05/2026",
+  "valor_liquido": 524.29,
+  "emissao": "2026-05-05",
+  "vencimento": "2026-05-10",
+  "prev_pagto": "2026-05-10",
+  "complemento": "REABASTECIMENTO DE GÁS REF. 05/2026",
+  "filtro_descricao": null,
+  "anexos": [
+    "data\\pdfs\\BOLETO ARTGAZ.pdf",
+    "data\\pdfs\\COMPROVANTE ARTGAZ.pdf",
+    "data\\pdfs\\NF ARTGAZ.pdf"
+  ],
+  "_extracao": {
+    "confiavel": true,
+    "precisa_revisao": false,
+    "avisos": [],
+    "numero_nf": "000576928",
+    "fontes": {
+      "boleto": "BOLETO ARTGAZ.pdf",
+      "comprovante": "COMPROVANTE ARTGAZ.pdf",
+      "nf": "NF ARTGAZ.pdf"
+    }
+  }
+}
