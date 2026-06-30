@@ -3,7 +3,6 @@ pydantic
 pydantic-settings
 python-dotenv
 PyYAML
-fastapi
-uvicorn
+Flask
 openai
 pdfplumber
