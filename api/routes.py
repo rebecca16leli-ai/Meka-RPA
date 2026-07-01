@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+from ctypes import resize
 import json
 import os
 import tempfile
@@ -17,11 +18,6 @@ def register_routes(app) -> None:
 
 
 @bp.route("/", methods=["GET"])
-def root() -> tuple:
-    return jsonify({"message": "Meka RPA API is running."}), 200
-
-
-@bp.route("/ui", methods=["GET"])
 def ui() -> str:
     return render_template("index.html")
 
@@ -78,7 +74,6 @@ def executar_lancamento_route() -> tuple:
 @bp.route("/processar", methods=["POST"])
 def processar() -> tuple:
     condominio = request.form.get("condominio", "").strip()
-    competencia = request.form.get("competencia", "").strip()
     arquivos = request.files.getlist("files")
 
     if not arquivos:
@@ -101,9 +96,8 @@ def processar() -> tuple:
         extracao = extrair(pdfs) if pdfs else None
         resultado = {
             "ok": True,
-            "message": "Pré-processamento concluído.",
+            "message": "Pré-processamento concluído; o fluxo do robô será iniciado com os dados extraídos.",
             "condominio": condominio,
-            "competencia": competencia,
             "arquivos": nomes,
             "pasta": str(pasta),
             "dados": {
@@ -117,6 +111,7 @@ def processar() -> tuple:
                 "fontes": extracao.fontes if extracao else {},
             },
         }
+        print(resultado)
     except Exception as exc:
         return jsonify({"ok": False, "detail": str(exc)}), 500
 
