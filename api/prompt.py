@@ -16,15 +16,15 @@ REGRAS CRÍTICAS
 
 4. Retorne SOMENTE JSON válido.
 
+5. A data de EMISSAO, COMPETENCIA e REFERENCIA serão sempre as mesmas, mudando apenas a FORMATAÇÃO
+
 ========================
-FORNECEDORES
+FORNECEDOR
 ========================
 
-[FORNECEDORES]
+[FORNECEDOR]
 
-1 - Use os fornecedores fornecidos para identificar o fornecedor do documento.
-
-2 - No JSON substituia [CODIGO_FORNECEDOR] e [NOME_FORNECEDOR] pelos valores corretos do fornecedor passado na lista acima. 
+1 - No JSON substituia [CODIGO_FORNECEDOR] e [NOME_FORNECEDOR] pelos valores na lista acima. 
 
 ========================
 FORMATO DE SAÍDA

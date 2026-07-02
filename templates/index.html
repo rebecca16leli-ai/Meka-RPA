@@ -121,6 +121,7 @@
           });
           const data = await response.json();
           
+          console.log(data.datas)
           mostrarStatus(data.ok ? 'Concluído' : 'Falha', data.ok ? 100 : 50, data.message || data.detail || 'Processo finalizado.');
         } catch (error) {
           mostrarStatus('Falha', 0, error.message);

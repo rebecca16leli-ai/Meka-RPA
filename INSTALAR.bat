@@ -22,13 +22,13 @@ if errorlevel 1 (
 echo [OK] Python encontrado.
 
 echo.
-echo [1/4] Criando ambiente isolado (.venv)...
-if exist ".venv" rmdir /s /q ".venv"
-python -m venv .venv
+echo [1/4] Criando ambiente isolado (venv)...
+if exist "venv" rmdir /s /q "venv"
+python -m venv venv
 if errorlevel 1 ( echo [ERRO] Falha ao criar o ambiente. & pause & exit /b 1 )
 
 echo [2/4] Ativando ambiente...
-call .venv\Scripts\activate.bat
+call venv\Scripts\activate.bat
 
 echo [3/4] Instalando bibliotecas (pode levar alguns minutos)...
 python -m pip install --upgrade pip >nul
