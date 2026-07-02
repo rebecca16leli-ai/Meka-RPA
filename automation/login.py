@@ -1,8 +1,9 @@
 from __future__ import annotations
+from time import sleep
 from playwright.sync_api import sync_playwright
 from core.config.settings import settings
 from core.logging.logger import get_logger
-from subprocess import run
+from subprocess import call
 from threading import Thread
 
 log = get_logger("login")
@@ -26,11 +27,15 @@ def main() -> None:
         log.info("Sessão gravada em %s", settings.auth_state_file)
         context.close()
     
-        def runing(): return run("python -m app", shell=True)
+        def runing(): return call("python -m app", shell=True)
+
         Thread(target=runing, daemon=True).start()
+
+        sleep(3)
         context = browser.new_context()
         page = context.new_page()
         page.goto("http://localhost:5000")
         input("Ao finalizar os lançamentos fecha aqui pressionando ENTER.")
+        browser.close()
 
 if __name__ == "__main__": main()

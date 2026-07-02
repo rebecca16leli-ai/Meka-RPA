@@ -5,9 +5,8 @@ title Meka RPA - Automação de Lançamentos Almah
 cd /d "%~dp0"
 if not exist "venv\Scripts\activate.bat" (
   call install.bat
-  pause
-  exit /b 1
 )
+
 call venv\Scripts\activate.bat
 echo ============================================================
 echo   GRAVAR LOGIN DO ALMAH
