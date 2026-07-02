@@ -7,6 +7,7 @@ from api.db import db
 from os import getenv
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
+from threading import Thread
 
 load_dotenv()
 
@@ -30,5 +31,4 @@ def ativar_case_insensitive(dbapi_connection, connection_record):
     cursor.execute("PRAGMA case_sensitive_like = OFF;")
     cursor.close()
 
-if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5000, debug=True)
+if __name__ == "__main__": app.run(host="0.0.0.0", port=5000, debug=True)

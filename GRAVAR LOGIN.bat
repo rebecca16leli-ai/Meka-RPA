@@ -17,6 +17,4 @@ echo      e pressione ENTER.
 echo ============================================================
 echo.
 python -m automation.login
-echo.
-echo Login gravado. Ja pode usar o painel "Meka Lancamentos".
 pause

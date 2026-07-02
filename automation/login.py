@@ -7,12 +7,12 @@ ela apenas reaproveita a sessão depois. Rode uma vez (e novamente se expirar):
 """
 from __future__ import annotations
 from playwright.sync_api import sync_playwright
-
 from core.config.settings import settings
 from core.logging.logger import get_logger
+from subprocess import run
+from threading import Thread
 
 log = get_logger("login")
-
 
 def main() -> None:
     settings.auth_state_file.parent.mkdir(parents=True, exist_ok=True)
@@ -33,7 +33,14 @@ def main() -> None:
         log.info("Sessão gravada em %s", settings.auth_state_file)
         context.close()
         browser.close()
+    
+    with sync_playwright() as p:
+        def runing(): return run("python -m app", shell=True)
+        Thread(target=runing, daemon=True).start()
+        browser = p.chromium.launch(headless=False)
+        context = browser.new_context()
+        page = context.new_page()
+        page.goto("localhost:5000")
+        input("Ao finalizar os lançamentos fecha aqui pressionando ENTER.")
 
-
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__": main()

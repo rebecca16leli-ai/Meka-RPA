@@ -8,13 +8,13 @@ ROOT = Path(__file__).resolve().parents[2]
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    almah_base_url: str = "https://SEU_ALMAH_AQUI"
+    almah_base_url: str = "https://guerreirocondominios.almahcondos.com.br"
     auth_state_path: str = "data/auth_state.json"
     db_path: str = "data/almah.db"
 
     headless: bool = False
     slow_mo_ms: int = 0
-    default_timeout_ms: int = 15000
+    default_timeout_ms: int = 1500000
 
     evidence_dir: str = "evidence"
 
