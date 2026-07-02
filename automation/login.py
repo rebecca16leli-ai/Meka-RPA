@@ -1,10 +1,3 @@
-"""Login manual único -> grava a sessão (storage_state).
-
-Você faz o login na janela que abrir. A automação NÃO digita usuário/senha;
-ela apenas reaproveita a sessão depois. Rode uma vez (e novamente se expirar):
-
-    python -m automation.login
-"""
 from __future__ import annotations
 from playwright.sync_api import sync_playwright
 from core.config.settings import settings
