@@ -25,15 +25,12 @@ def main() -> None:
         context.storage_state(path=str(settings.auth_state_file))
         log.info("Sessão gravada em %s", settings.auth_state_file)
         context.close()
-        browser.close()
     
-    with sync_playwright() as p:
         def runing(): return run("python -m app", shell=True)
         Thread(target=runing, daemon=True).start()
-        browser = p.chromium.launch(headless=False)
         context = browser.new_context()
         page = context.new_page()
-        page.goto("localhost:5000")
+        page.goto("http://localhost:5000")
         input("Ao finalizar os lançamentos fecha aqui pressionando ENTER.")
 
 if __name__ == "__main__": main()

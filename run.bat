@@ -1,9 +1,10 @@
 @echo off
 chcp 65001 >nul
-title Meka - Gravar Login do Almah
+title Meka RPA - Automação de Lançamentos Almah
+
 cd /d "%~dp0"
 if not exist "venv\Scripts\activate.bat" (
-  echo [ERRO] O programa ainda nao foi instalado. Rode INSTALAR.bat primeiro.
+  call install.bat
   pause
   exit /b 1
 )
