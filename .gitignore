@@ -16,6 +16,8 @@ env/
 build/
 dist/
 *.spec
+data/
+evidence/
 
 # PyInstaller
 *.manifest
