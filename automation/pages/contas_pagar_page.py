@@ -63,6 +63,7 @@ class ContasAPagarPage(BasePage):
           - se sobrar mais de uma sem como desempatar -> ERRO (revisão).
         Não casa por data: a competência do lançamento NÃO bate com o
         vencimento da recorrência (pode ser de meses atrás)."""
+        
         tabela = self._tabela()
         linhas = tabela.locator("tbody tr")
         total = linhas.count()

@@ -51,8 +51,7 @@ def validar_condominio(condominio: str) -> dict[str, Any]:
         return {"ok": True, "mensagem": "Condomínio validado."}
 
 
-def executar_lancamento_json(arquivo: str, confirmar: bool = False) -> dict[str, Any]:
-    dados = json.loads(Path(arquivo).read_text(encoding="utf-8"))
+def executar_lancamento_json(dados: str, confirmar: bool = False, condominio: str = None) -> dict[str, Any]:
     selectors = Selectors()
     browser = BrowserManager()
     dry_run = not confirmar
@@ -61,20 +60,12 @@ def executar_lancamento_json(arquivo: str, confirmar: bool = False) -> dict[str,
         with browser.pagina() as page:
             page.goto(settings.almah_base_url)
             page.wait_for_load_state("networkidle")
-            if not browser.esta_logado(page, selectors):
-                return {"ok": False, "erro": "Sessão expirada. Rode o login novamente."}
-
-            resultado = executar_lancamento(page, browser, selectors, dados, dry_run=dry_run)
+            if not browser.esta_logado(page, selectors): return {"ok": False, "erro": "Sessão expirada. Rode o login novamente."}
+            resultado = executar_lancamento(page, browser, selectors, dados, dry_run=dry_run, condominio=condominio)
             return {
                 "ok": resultado.ok,
                 "status": resultado.status,
                 "mensagem": resultado.mensagem,
                 "evidencias": resultado.evidencias,
             }
-
-    except SessaoInvalidaError as e:
-        return {"ok": False, "erro": str(e)}
-    except SeletorIndisponivelError as e:
-        return {"ok": False, "erro": str(e)}
-    except Exception as e:
-        return {"ok": False, "erro": str(e)}
+    except Exception as e: return {"ok": False, "erro": str(e)}

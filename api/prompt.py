@@ -18,6 +18,18 @@ REGRAS CRÍTICAS
 
 5. A data de EMISSAO, COMPETENCIA e REFERENCIA serão sempre as mesmas, mudando apenas a FORMATAÇÃO
 
+6. Em arquios como da SANEPAR E COPEL conterão matriculas, obtenha-as e as insira SOMENTE A MATRICULA em FILTRO_DESCRICAO (filtro_descricao)
+
+========================
+ARQUIVOS MULTIPLOS
+========================
+
+1 - Será enviado arquivos multiplos em anexo, para que seja feito a leitura é necessário que agrupe os arquivos por FORNECEDOR
+e insira os caminhos em ANEXOS.
+
+2 - Existirá casos onde NÃO serão passado arquivos do MESMO FORNECEDOR, neste caso agrupe somente os arquivos que foram enviados
+na REQUISIÇÃO  
+
 ========================
 FORNECEDOR
 ========================
@@ -33,13 +45,21 @@ FORMATO DE SAÍDA
 {
   "documentos": [
     {
-      "codigo": "[CODIGO_FORNECEDOR]",
-      "fornecedor": "[NOME_FORNECEDOR]",
+      "condominio": "NOME DO CONDOMÍNIO",
+      "fornecedor_codigo": "[CODIGO_FORNECEDOR]",
+      "fornecedor_nome": "[NOME_FORNECEDOR]",
       "competencia": "mm/yyyy",
-      "referencia": "mm/yyyy",
-      "valor": 0.00,
+      "documento_referencia": "REF. MM/YYYY",
+      "valor_liquido": 0.00,
       "vencimento": "dd/mm/yyyy",
-      "emissao": "dd/mm/yyyy"
+      "prev_pagto": "dd/mm/yyyy",
+      "emissao": "dd/mm/yyyy",
+      "filtro_descricao": ""
+      "anexos": [
+          "data/pdfs/BOLETO.pdf",
+          "data/pdfs/COMPROVANTE.pdf",
+          "data/pdfs/NF.pdf",
+      ],
     }
   ]
 }

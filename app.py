@@ -1,5 +1,5 @@
 from __future__ import annotations
-from flask import Flask, jsonify
+from flask import Flask
 from flask_cors import CORS
 from api.routes import register_routes
 from dotenv import load_dotenv
@@ -7,7 +7,7 @@ from api.db import db
 from os import getenv
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
-from threading import Thread
+from core.config.settings import settings
 
 load_dotenv()
 
@@ -15,8 +15,8 @@ def create_app() -> Flask:
     app = Flask(__name__, template_folder="templates")
     app.config["JSON_SORT_KEYS"] = False
     CORS(app, allow_headers="*")  # Carrega os CORS security
-    app.config["SECRET_KEY"] = getenv("SECRET")
-    app.config["SQLALCHEMY_DATABASE_URI"] = getenv("DB_URI")
+    app.config["SECRET_KEY"] = settings.secret_key
+    app.config["SQLALCHEMY_DATABASE_URI"] = settings.db_uri
     register_routes(app)
     return app
 

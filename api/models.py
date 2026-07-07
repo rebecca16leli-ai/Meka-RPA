@@ -7,3 +7,9 @@ class Fornecedores(db.Model):
     nome = db.Column(db.String)
     codigo = db.Column(db.String)
     active = db.Column(db.Boolean, default=True)
+    
+class Condominios(db.Model):
+    __tablename__ = "condominios"
+    
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String)
