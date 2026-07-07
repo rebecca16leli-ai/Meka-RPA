@@ -1,11 +1,37 @@
-.env
-data/auth_state.json
-data/*.db
-logs/*.log
-evidence/*.png
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Virtualenv
+venv/
 .venv/
-venv
-data/pdfs
-data/lote
+env/
+
+# Build
+build/
+dist/
+*.spec
+
+# PyInstaller
+*.manifest
+
+# VS Code
+.vscode/
+
+# JetBrains
+.idea/
+
+# Logs
+*.log
+
+# Banco temporário
+*.db-journal
+
+# Sistema
+.DS_Store
+Thumbs.db
