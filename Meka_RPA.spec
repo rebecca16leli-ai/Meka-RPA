@@ -1,16 +1,29 @@
 # -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_all
 
+datas = []
+binaries = []
+hiddenimports = []
+tmp_ret = collect_all('playwright')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+datas += [
+    ('templates', 'templates'),
+    ('static', 'static'),
+    ('instance/data.db', 'instance'),
+    ('core/config/selectors.yaml', 'core/config'),
+    ('core/db/schema.sql', 'core/db'),
+]
 
 a = Analysis(
     ['run.py'],
     pathex=[],
-    binaries=[],
-    datas=[('instance/data.db', 'instance'), ('.env', '.'), ('templates', 'templates'), ('static', 'static'), ('core/config', 'core/config')],
-    hiddenimports=[],
+    binaries=binaries,
+    datas=datas,
+    hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=['gunicorn'],
     noarchive=False,
     optimize=0,
 )

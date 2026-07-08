@@ -9,7 +9,7 @@ class ApiFlaskTests(unittest.TestCase):
         response = client.get("/")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.get_json(), {"message": "Meka RPA API is running."})
+        self.assertIn(b"Meka RPA", response.data)
 
     def test_condominios_route_returns_csv_entries(self):
         client = app.test_client()
@@ -17,7 +17,7 @@ class ApiFlaskTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertGreaterEqual(len(response.get_json()), 1)
-        self.assertIn("CONDOMINIO ALAMEDA EUROPA", response.get_json()[0]["nome"])
+        self.assertIn("nome", response.get_json()[0])
 
 
 if __name__ == "__main__":

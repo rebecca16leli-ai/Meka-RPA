@@ -12,7 +12,11 @@ from core.config.settings import settings
 load_dotenv()
 
 def create_app() -> Flask:
-    app = Flask(__name__, template_folder="templates")
+    app = Flask(
+        __name__,
+        template_folder=str(settings.template_dir),
+        static_folder=str(settings.static_dir),
+    )
     app.config["JSON_SORT_KEYS"] = False
     CORS(app, allow_headers="*")  # Carrega os CORS security
     app.config["SECRET_KEY"] = settings.secret_key

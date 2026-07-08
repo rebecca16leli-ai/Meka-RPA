@@ -1,13 +1,15 @@
-"""Logging estruturado e captura de evidências (Módulo: Logs)."""
+"""Logging estruturado e captura de evidencias."""
 from __future__ import annotations
+
 import logging
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
 
 from core.config.settings import settings
 
-_LOG_DIR = Path(__file__).resolve().parents[2] / "logs"
+_LOG_DIR = Path(os.environ["LOCALAPPDATA"]) / "Meka RPA" / "logs"
 _LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -28,10 +30,7 @@ def get_logger(nome: str = "almah") -> logging.Logger:
     return logger
 
 
-def salvar_evidencia(page, etapa: str, ref: str = "geral") -> Path:
-    """Salva print da tela rotulado por etapa (R11/evidências)."""
 def salvar_evidencia(page, etapa: str, ref: str = "geral", full_page: bool = True) -> Path:
-    """Salva print da tela rotulado por etapa (R11/evidências)."""
     settings.evidence_path.mkdir(parents=True, exist_ok=True)
     nome = f"{datetime.now():%Y%m%d_%H%M%S}_{ref}_{etapa}.png".replace(" ", "_")
     destino = settings.evidence_path / nome

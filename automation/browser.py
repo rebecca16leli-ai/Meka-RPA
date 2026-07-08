@@ -44,7 +44,11 @@ class BrowserManager:
                 "Sessão não encontrada. Rode primeiro: python -m automation.login"
             )
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=settings.headless, slow_mo=settings.slow_mo_ms)
+            browser = p.chromium.launch(
+                executable_path=settings.chrome_path,
+                headless=settings.headless,
+                slow_mo=settings.slow_mo_ms,
+            )
             context = browser.new_context(storage_state=str(settings.auth_state_file))
             context.set_default_timeout(settings.default_timeout_ms)
             page = context.new_page()

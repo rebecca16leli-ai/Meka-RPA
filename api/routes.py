@@ -2,28 +2,39 @@ import tempfile
 from pathlib import Path
 from pandas import read_csv
 from api.db import db
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, jsonify, redirect, render_template, request, url_for
 from api.models import Fornecedores
 from api.ia import ler_documento
 import re
 from os import path
 from json import dumps
-from api.services import executar_lancamento_json
+from api.services import executar_lancamento_json, iniciar_login_manual
 from api.models import Condominios
+from core.config.settings import settings
 
 bp = Blueprint("main", __name__)
 
-def register_routes(app) -> None: app.register_blueprint(bp)
+
+def register_routes(app) -> None:
+    app.register_blueprint(bp)
+
 
 @bp.route("/", methods=["GET"])
 def ui() -> str:
     return render_template("index.html")
 
 
+@bp.route("/gravar", methods=["GET"])
+def gravar_login():
+    iniciar_login_manual()
+    return redirect(url_for("main.ui"))
+
+
 @bp.route("/condominios", methods=["GET"])
 def condominios() -> tuple:
-    conds = db.session.query(Condominios.nome).all()
+    conds = db.session.query(Condominios.id, Condominios.nome).all()
     return jsonify([c._asdict() for c in conds]), 200
+
 
 @bp.route("/fornecedores", methods=["POST"])
 def getForns():
@@ -51,6 +62,7 @@ def validar_condominio_route() -> tuple:
 
     return jsonify(resultado), 200
 
+
 # Use para testes evita gasto com Token
 # com 1 arquivo
 # extracao = {'documentos': [{'condominio': 'COND. EDF. ANDARAI', 'fornecedor_codigo': 226, 'fornecedor_nome': 'ARTGAZ COMERCIO DE GAS LTDA', 'competencia': '05/2026', 'documento_referencia': 'REF. 05/2026', 'valor_liquido': 409.38, 'vencimento': '10/06/2026', 'prev_pagto': None, 'emissao': '27/05/2026', 'anexos': ['C:\\Users\\Guilherme\\Documents\\Meka-RPA\\data\\pdfs\\meka_upload_t28jsucn\\BOLETO - ARTGAZ.pdf']}]}
@@ -58,13 +70,18 @@ def validar_condominio_route() -> tuple:
 # com 2 arquivos
 # extracao = {'documentos': [{'condominio': 'COND. EDF. ANDARAI', 'fornecedor_codigo': 226, 'fornecedor_nome': 'ARTGAZ COMERCIO DE GAS LTDA', 'competencia': '05/2026', 'documento_referencia': 'REF. 05/2026', 'valor_liquido': 409.38, 'vencimento': '10/06/2026', 'prev_pagto': None, 'emissao': '27/05/2026', 'anexos': ['C:\\Users\\Guilherme\\Documents\\Meka-RPA\\data\\pdfs\\meka_upload_6wzqhfqt\\BOLETO - ARTGAZ.pdf']}, {'condominio': 'CONDOMINIO EDIFICIO ANDARARI', 'fornecedor_codigo': 335, 'fornecedor_nome': 'CLARO NXT TELECOMUNICACOES S/A', 'competencia': '04/2026', 'documento_referencia': 'REF. 04/2026', 'valor_liquido': 74.9, 'vencimento': '10/05/2026', 'prev_pagto': None, 'emissao': '22/04/2026', 'anexos': ['C:\\Users\\Guilherme\\Documents\\Meka-RPA\\data\\pdfs\\meka_upload_6wzqhfqt\\BOLETO CLARO.pdf']}]}
 
+
 @bp.route("/processar", methods=["POST"])
 def processar() -> tuple:
     condominio = request.form.get("condominio").strip()
-    arquivos = request.files.getlist("files")
-    if not arquivos: return jsonify({"ok": False, "detail": "Selecione ao menos um PDF."}), 400
+    print(condominio)
+    if not condominio: return {"ok": False, "erro": "Condomínio não informado."}, 400
 
-    pasta_base = Path(__file__).resolve().parents[1] / "data" / "pdfs"
+    arquivos = request.files.getlist("files")
+    if not arquivos:
+        return jsonify({"ok": False, "detail": "Selecione ao menos um PDF."}), 400
+
+    pasta_base = settings.data_dir / "pdfs"
     pasta_base.mkdir(parents=True, exist_ok=True)
     pasta = Path(tempfile.mkdtemp(prefix="meka_upload_", dir=str(pasta_base)))
 
@@ -100,18 +117,34 @@ def processar() -> tuple:
 
             query = None
             nome = re.sub(r"\d+", "", nome).strip()
-            queryNome = Fornecedores.query.filter(Fornecedores.nome.contains(nome)).all()
-            for item in queryNome: query = item if nome in item.nome else None
-            if not query: return jsonify({"ok": False, "detail": "Fornecedor não encontrado"}), 404
-            dados.append({ "fornecedor": query.nome, "fornecedor_id": query.id, "arquivo": pdf })
-            
+            queryNome = Fornecedores.query.filter(
+                Fornecedores.nome.contains(nome)
+            ).all()
+            for item in queryNome:
+                query = item if nome in item.nome else None
+            if not query:
+                return (
+                    jsonify({"ok": False, "detail": "Fornecedor não encontrado"}),
+                    404,
+                )
+            dados.append(
+                {"fornecedor": query.nome, "fornecedor_id": query.id, "arquivo": pdf}
+            )
+
+        print("INFO: Iniciando extração dos documentos com IA: ")
         extracao = ler_documento(dados)
-        print("-"*50)
+        print("-" * 50)
         print("INFO: Extração da IA: >> ")
         print(extracao)
-        print("-"*50)
-        print("Iniciando a automação")
-        resultado = executar_lancamento_json(extracao, condominio=condominio)
-        print("Automação finalizada")
-        return jsonify({"ok":True, "message": "Sucesso com a automação", "res": resultado}), 200
-    except Exception as exc: return jsonify({"ok": False, "detail": str(exc)}), 500
+        print("-" * 50)
+        print("INFO: Iniciando a automação")
+        resultado = executar_lancamento_json(extracao, cond=condominio)
+        print("INFO: Automação finalizada")
+        return (
+            jsonify(
+                {"ok": True, "message": "Sucesso com a automação", "res": resultado}
+            ),
+            200,
+        )
+    except Exception as exc:
+        return jsonify({"ok": False, "detail": str(exc)}), 500

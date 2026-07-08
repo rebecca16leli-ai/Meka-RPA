@@ -28,7 +28,7 @@
         <div class="row g-3">
           <div class="col-md-12">
             <label class="form-label">Condomínio</label>
-            <select id="condominio" class="form-select"></select>
+            <select id="condominio" name="condominio" class="form-select"></select>
           </div>
         </div>
 
@@ -84,7 +84,7 @@
         condominioSelect.innerHTML = '';
         data.forEach(item => {
           const option = document.createElement('option');
-          option.value = item.valor;
+          // option.value = item.id;
           option.textContent = item.nome;
           condominioSelect.appendChild(option);
         });
