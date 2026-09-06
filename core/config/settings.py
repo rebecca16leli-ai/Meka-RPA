@@ -39,6 +39,7 @@ INSTANCE_DIR = USER_DATA_DIR / "instance"
 EVIDENCE_DIR = USER_DATA_DIR / "evidence"
 TEMPLATE_DIR = RESOURCE_DIR / "templates"
 STATIC_DIR = RESOURCE_DIR / "static"
+ENV_FILES = (ENV_FILE, USER_DATA_DIR / ".env")
 
 
 DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -65,8 +66,9 @@ if not DB_FILE.exists() and SEED_DB_FILE.exists():
 class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(
-        env_file=ENV_FILE,
+        env_file=ENV_FILES,
         env_file_encoding="utf-8",
+        env_ignore_empty=True,
         extra="ignore",
     )
 
@@ -77,6 +79,8 @@ class Settings(BaseSettings):
 
     openai_api_key: str = ""
     secret_key: str = "meka-rpa-local"
+    almah_usuario: str = ""
+    almah_senha: str = ""
 
 
     # ==================================================================
@@ -88,8 +92,12 @@ class Settings(BaseSettings):
     )
 
     headless: bool = False
-    slow_mo_ms: int = 0
-    default_timeout_ms: int = 1500000
+    dry_run: bool = True
+    # Pausa entre operacoes Playwright para permitir acompanhamento visual e
+    # identificar com clareza a etapa em que o portal falhou.
+    slow_mo_ms: int = 2000
+    default_timeout_ms: int = 30000
+    login_timeout_ms: int = 45000
 
     xhr_troca_condominio: str = ""
     xhr_salvar_lancamento: str = ""
@@ -115,10 +123,6 @@ class Settings(BaseSettings):
     def data_dir(self) -> Path:
         return DATA_DIR
 
-
-    @property
-    def auth_state_file(self) -> Path:
-        return USER_DATA_DIR / "auth_state.json"
 
     @property
     def chrome_path(self) -> str:

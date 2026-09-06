@@ -23,7 +23,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['gunicorn'],
+    excludes=['gunicorn', 'pandas', 'numpy'],
     noarchive=False,
     optimize=0,
 )
@@ -45,6 +45,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon="fav.ico"
 )
 coll = COLLECT(
     exe,

@@ -118,6 +118,12 @@ formulario:
       - "#f_descricao"
     status: inferido
     nota: "id inferido pelo padrão f_*. Confirmar. Operador não citou alteração mês a mês."
+  cobranca_recebida:
+    selectors:
+      - 'xpath=//*[self::label or self::div or self::span][normalize-space()="Cob. Recebida"]/following::*[contains(@class,"select2-selection--single")][1]'
+      - '.form-group:has-text("Cob. Recebida") .select2-selection--single'
+    status: inferido
+    nota: "Localiza o Select2 pelo rotulo visivel e define explicitamente como Sim."
   emissao:
     selectors:
       - "#f_data_emissao"

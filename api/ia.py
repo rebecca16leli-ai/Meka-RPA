@@ -17,18 +17,25 @@ def ler_documento(dados):
         raise RuntimeError("OPENAI_API_KEY nao configurada no arquivo .env.")
 
     client = OpenAI(api_key=settings.openai_api_key)
-    content = [{"type": "input_text", "text": PROMPT.replace("[FORNECEDOR]", str(dados))},]
-    for item in dados:
-        pdf = item["arquivo"]
-        arquivo = client.files.create(file=open(pdf, "rb"), purpose="assistants")
-        content.append({"type": "input_file", "file_id": arquivo.id})
+    content = [{"type": "input_text", "text": PROMPT.replace("[FORNECEDOR]", str(dados))}]
+    file_ids = []
+    try:
+        for item in dados:
+            pdf = item["arquivo"]
+            with open(pdf, "rb") as arquivo_pdf:
+                arquivo = client.files.create(file=arquivo_pdf, purpose="assistants")
+            file_ids.append(arquivo.id)
+            content.append({"type": "input_file", "file_id": arquivo.id})
 
-    response = client.responses.create(
-        model="gpt-5",
-        input=[
-            {"role": "user", "content": content},
-        ],
-        text={"format": {"type": "json_object"}},
-    )
-
-    return loads(response.output_text)
+        response = client.responses.create(
+            model="gpt-5",
+            input=[{"role": "user", "content": content}],
+            text={"format": {"type": "json_object"}},
+        )
+        return loads(response.output_text)
+    finally:
+        for file_id in file_ids:
+            try:
+                client.files.delete(file_id)
+            except Exception:
+                pass

@@ -1,15 +1,10 @@
-"""Adapter de navegador (Módulo 5).
-
-- Reaproveita a sessão criada manualmente em login.py via storage_state.
-- Anexa um interceptador de respostas XHR para servir de SEGUNDO sinal de
-  verificação (ex.: confirmar qual condomínio o backend reconheceu na troca).
-  Se as substrings de URL não estiverem configuradas no .env, opera só por DOM.
-"""
+"""Gerencia um contexto Playwright isolado para cada processamento."""
 from __future__ import annotations
+
 from contextlib import contextmanager
 from typing import Iterator
 
-from playwright.sync_api import sync_playwright, Page, Response
+from playwright.sync_api import Page, Response, sync_playwright
 
 from core.config.settings import settings
 from core.logging.logger import get_logger
@@ -18,11 +13,10 @@ log = get_logger("browser")
 
 
 class SessaoInvalidaError(RuntimeError):
-    pass
+    """Mantida por compatibilidade com entradas CLI antigas."""
 
 
 class XHRBuffer:
-    """Guarda as últimas respostas XHR relevantes, por categoria."""
     def __init__(self) -> None:
         self.ultimas: dict[str, dict] = {}
 
@@ -39,17 +33,13 @@ class BrowserManager:
 
     @contextmanager
     def pagina(self) -> Iterator[Page]:
-        if not settings.auth_state_file.exists():
-            raise SessaoInvalidaError(
-                "Sessão não encontrada. Rode primeiro: python -m automation.login"
-            )
-        with sync_playwright() as p:
-            browser = p.chromium.launch(
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(
                 executable_path=settings.chrome_path,
                 headless=settings.headless,
                 slow_mo=settings.slow_mo_ms,
             )
-            context = browser.new_context(storage_state=str(settings.auth_state_file))
+            context = browser.new_context()
             context.set_default_timeout(settings.default_timeout_ms)
             page = context.new_page()
             self._anexar_interceptador(page)
@@ -64,37 +54,33 @@ class BrowserManager:
         salvar = settings.xhr_salvar_lancamento.strip()
 
         def on_response(resp: Response) -> None:
-            url = resp.url
             try:
-                if troca and troca in url:
-                    self.xhr.registrar("troca_condominio", url, resp.status, self._corpo(resp))
-                elif salvar and salvar in url:
-                    self.xhr.registrar("salvar_lancamento", url, resp.status, self._corpo(resp))
-            except Exception as e:  # nunca derruba o fluxo por causa de log
-                log.debug("Falha ao ler resposta XHR: %s", e)
+                if troca and troca in resp.url:
+                    self.xhr.registrar("troca_condominio", resp.url, resp.status, self._corpo(resp))
+                elif salvar and salvar in resp.url:
+                    self.xhr.registrar("salvar_lancamento", resp.url, resp.status, self._corpo(resp))
+            except Exception as exc:
+                log.debug("Falha ao ler resposta XHR: %s", exc)
 
         page.on("response", on_response)
 
     @staticmethod
     def _corpo(resp: Response) -> str | None:
         ctype = resp.headers.get("content-type", "")
-        if "json" in ctype or "text" in ctype:
-            try:
-                return resp.text()
-            except Exception:
-                return None
-        return None
+        if "json" not in ctype and "text" not in ctype:
+            return None
+        try:
+            return resp.text()
+        except Exception:
+            return None
 
     def sessao_ativa(self, page: Page, seletor_login: list[str]) -> bool:
-        """True se NÃO estamos na tela de login (R7)."""
-        for sel in seletor_login:
-            if page.locator(sel).count() > 0 and page.locator(sel).first.is_visible():
-                return False
-        return True
+        return not any(
+            page.locator(sel).count() > 0 and page.locator(sel).first.is_visible()
+            for sel in seletor_login
+        )
 
     def esta_logado(self, page: Page, selectors) -> bool:
-        """Logado se caímos na tela de ENTRADA (estabelecimento) ou na PRINCIPAL.
-        Robusto: não dá falso 'expirada' na tela de entrada (que não tem senha)."""
         if "estabelecimento" in (page.url or "").lower():
             return True
         for dotted in ("estabelecimento.select2_abrir", "condominio.nome_ativo"):
@@ -103,5 +89,5 @@ class BrowserManager:
                 if loc.count() > 0 and loc.is_visible():
                     return True
             except Exception:
-                pass
+                continue
         return False

@@ -13,14 +13,26 @@
       .dropzone.dragover { border-color: #0d6efd; background: #eef5ff; }
       .hidden { display: none; }
       .progress { height: 10px; }
+      .result-summary .card { box-shadow: none; border: 1px solid rgba(0,0,0,.08); }
+      .evidence-path { overflow-wrap: anywhere; }
     </style>
   </head>
   <body>
     <div class="container py-4">
       <div class="card p-4">
         <div class="d-flex p-2 justify-content-between align-items-center">
-          <h2>Meka RPA</h2>
-          <a href="/gravar" class="btn btn-success d-flex align-items-center gap-2"><i class="bi bi-box-arrow-in-right"></i> Regravar Login</a>
+          <div class="d-flex text-center flex-column gap-2">
+            <img src="{{ url_for('static', filename='logo.png') }}" class="object-fit-cover" width="200" height="50" alt="Meka">
+            <span>Automações & RPA's</span>
+          </div>
+          <div class="d-flex gap-2">
+            <span class="badge text-bg-success"><i class="bi bi-shield-fill-check"></i> lOGIN AUTOMATICO SEGURO</span>
+            {% if dry_run %}
+              <span class="badge text-bg-warning"><i class="bi bi-save2-fill"></i> GRAVAÇÃO DE DADOS PARA TESTE</span>
+            {% else %}
+              <span class="badge text-bg-danger"><i class="bi bi-floppy-fill"></i> GRAVAÇÃO DE DADOS REAL ATIVA</span>
+            {% endif %}
+          </div>
         </div>
         <hr>
         <p class="text-muted">Selecione PDF(s), escolha o condomínio e envie para processamento.</p>
@@ -55,6 +67,18 @@
           <div id="statusMessage" class="small text-muted mt-2"></div>
         </div>
 
+        <div class="mt-4 hidden result-summary" id="resultadoBox">
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <h5 class="mb-0">Resultado do lote</h5>
+            <div class="d-flex gap-2">
+              <span class="badge text-bg-secondary" id="totalBadge">0 itens</span>
+              <span class="badge text-bg-success" id="sucessoBadge">0 sucessos</span>
+              <span class="badge text-bg-danger" id="erroBadge">0 erros</span>
+            </div>
+          </div>
+          <div class="accordion" id="resultadoAccordion"></div>
+        </div>
+
         <div class="mt-4">
           <button id="btnEnviar" class="btn btn-primary">Processar</button>
           <button id="btnLimpar" class="btn btn-outline-secondary ms-2">Limpar</button>
@@ -75,6 +99,11 @@
       const statusMessage = document.getElementById('statusMessage');
       const btnEnviar = document.getElementById('btnEnviar');
       const btnLimpar = document.getElementById('btnLimpar');
+      const resultadoBox = document.getElementById('resultadoBox');
+      const resultadoAccordion = document.getElementById('resultadoAccordion');
+      const totalBadge = document.getElementById('totalBadge');
+      const sucessoBadge = document.getElementById('sucessoBadge');
+      const erroBadge = document.getElementById('erroBadge');
 
       let arquivosSelecionados = [];
 
@@ -108,6 +137,65 @@
         statusMessage.textContent = mensagem;
       }
 
+      function textoElemento(tag, texto, classe = '') {
+        const elemento = document.createElement(tag);
+        elemento.className = classe;
+        elemento.textContent = texto;
+        return elemento;
+      }
+
+      function renderizarResultados(resultado) {
+        const itens = Array.isArray(resultado?.itens) ? resultado.itens : [];
+        resultadoAccordion.innerHTML = '';
+        totalBadge.textContent = `${resultado?.total ?? itens.length} item(ns)`;
+        sucessoBadge.textContent = `${resultado?.sucessos ?? 0} sucesso(s)`;
+        erroBadge.textContent = `${resultado?.erros ?? 0} erro(s)`;
+
+        itens.forEach((item, posicao) => {
+          const id = `resultado-${posicao}`;
+          const accordionItem = document.createElement('div');
+          accordionItem.className = 'accordion-item';
+          const header = document.createElement('h2');
+          header.className = 'accordion-header';
+          const botao = document.createElement('button');
+          botao.className = 'accordion-button collapsed';
+          botao.type = 'button';
+          botao.dataset.bsToggle = 'collapse';
+          botao.dataset.bsTarget = `#${id}`;
+          botao.setAttribute('aria-controls', id);
+          botao.appendChild(textoElemento(
+            'span', item.ok ? 'SUCESSO' : 'ERRO',
+            `badge ${item.ok ? 'text-bg-success' : 'text-bg-danger'} me-2`
+          ));
+          botao.appendChild(textoElemento(
+            'span',
+            `${item.fornecedor || 'Fornecedor nao identificado'}${item.referencia ? ` - ${item.referencia}` : ''}`
+          ));
+          header.appendChild(botao);
+
+          const collapse = document.createElement('div');
+          collapse.id = id;
+          collapse.className = 'accordion-collapse collapse';
+          collapse.dataset.bsParent = '#resultadoAccordion';
+          const body = document.createElement('div');
+          body.className = 'accordion-body';
+          body.appendChild(textoElemento('p', item.mensagem || 'Sem mensagem.', 'mb-2'));
+          if (item.arquivos?.length) {
+            body.appendChild(textoElemento('div', `Arquivo(s): ${item.arquivos.join(', ')}`, 'small text-muted'));
+          }
+          if (item.evidencias?.length) {
+            body.appendChild(textoElemento('div', 'Evidencias:', 'small fw-semibold mt-2'));
+            item.evidencias.forEach(caminho => {
+              body.appendChild(textoElemento('div', caminho, 'small text-muted evidence-path'));
+            });
+          }
+          collapse.appendChild(body);
+          accordionItem.append(header, collapse);
+          resultadoAccordion.appendChild(accordionItem);
+        });
+        resultadoBox.classList.toggle('hidden', itens.length === 0);
+      }
+
       async function processarArquivos() {
         if (!arquivosSelecionados.length) {
           return;
@@ -119,6 +207,8 @@
 
         mostrarStatus('Enviando PDFs...', 10, 'Processando arquivos e iniciando o fluxo do robô.');
 
+        resultadoBox.classList.add('hidden');
+        btnEnviar.disabled = true;
         try {
           const response = await fetch('/processar', {
             method: 'POST',
@@ -126,10 +216,18 @@
           });
           const data = await response.json();
           
-          console.log(data.datas)
-          mostrarStatus(data.ok ? 'Concluído' : 'Falha', data.ok ? 100 : 50, data.message || data.detail || 'Processo finalizado.');
+          if (data.res?.itens) {
+            renderizarResultados(data.res);
+          }
+          const temErros = (data.res?.erros || 0) > 0;
+          const titulo = data.ok
+            ? (temErros ? 'Lote concluido com pendencias' : 'Lote concluido')
+            : 'Falha';
+          mostrarStatus(titulo, data.ok ? 100 : 50, data.message || data.detail || 'Processo finalizado.');
         } catch (error) {
           mostrarStatus('Falha', 0, error.message);
+        } finally {
+          btnEnviar.disabled = false;
         }
       }
 
@@ -163,6 +261,8 @@
         arquivoInput.value = '';
         atualizarLista();
         statusBox.classList.add('hidden');
+        resultadoBox.classList.add('hidden');
+        resultadoAccordion.innerHTML = '';
       });
 
       btnEnviar.addEventListener('click', () => {

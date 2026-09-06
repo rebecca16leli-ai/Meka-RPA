@@ -19,6 +19,31 @@ class Select2Error(RuntimeError):
     pass
 
 
+def escolher_opcao_fixa(
+    page: Page,
+    abrir: Locator,
+    texto: str,
+    timeout: int = 10000,
+) -> None:
+    """Escolhe uma opcao curta de Select2 que pode nao ter campo de busca."""
+    abrir.scroll_into_view_if_needed()
+    abrir.click()
+    seletor_opcoes = ".select2-container--open li.select2-results__option"
+    page.wait_for_selector(seletor_opcoes, timeout=timeout)
+
+    opcoes = page.locator(seletor_opcoes)
+    alvo = None
+    for i in range(opcoes.count()):
+        opcao = opcoes.nth(i)
+        if normalizar(opcao.text_content()) == normalizar(texto):
+            alvo = opcao
+            break
+    if alvo is None:
+        raise Select2Error(f"Opcao '{texto}' nao encontrada no Select2.")
+    alvo.click()
+    log.info("Select2: opcao fixa selecionada '%s'", texto)
+
+
 def escolher(page: Page, abrir: Locator, texto_busca: str, conter: bool = True,
              timeout: int = 10000) -> None:
     """Abre o Select2 em `abrir`, digita `texto_busca` e clica na opção.

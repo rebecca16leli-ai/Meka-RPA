@@ -1,125 +1,115 @@
 from __future__ import annotations
 
+from threading import Lock
 from typing import Any
-
-from playwright.sync_api import sync_playwright
 
 from automation.browser import BrowserManager
 from automation.flow import executar_lancamento
+from automation.pages.condominio_page import CondominioPage
+from automation.pages.estabelecimento_page import EstabelecimentoPage
+from automation.pages.login_page import LoginPage
 from core.config.selectors import Selectors, SeletorIndisponivelError
 from core.config.settings import settings
-from core.logging.logger import get_logger
+from core.logging.logger import criar_pasta_execucao, get_logger, salvar_evidencia
 
 log = get_logger("api")
 
+# O executable atende requisicoes em threads. Impede dois robos de alterarem
+# lancamentos ao mesmo tempo no mesmo computador.
+_automation_lock = Lock()
 
-def iniciar_login_manual() -> str:
-    settings.auth_state_file.parent.mkdir(parents=True, exist_ok=True)
 
-    with sync_playwright() as p:
-
-        browser = p.chromium.launch(
-            executable_path=settings.chrome_path,
-            headless=False,
-        )
-
-        context = browser.new_context()
-
-        page = context.new_page()
-
-        page.goto(settings.almah_base_url)
-
-        page.wait_for_event(
-            "close",
-            timeout=0,
-        )
-
-        context.storage_state(
-            path=str(settings.auth_state_file)
-        )
-
-        browser.close()
-
-    return "Sessão gravada com sucesso."
+def resolver_dry_run(confirmar: bool | None) -> bool:
+    return settings.dry_run if confirmar is None else not confirmar
 
 
 def validar_condominio(condominio: str) -> dict[str, Any]:
-
     selectors = Selectors()
     browser = BrowserManager()
 
-    with browser.pagina() as page:
-
-        page.goto(settings.almah_base_url)
-
-        page.wait_for_load_state("networkidle")
-
-        seletor_login = selectors.chain("login.indicador_tela_login")
-
-        if not browser.sessao_ativa(page, seletor_login):
-            return {
-                "ok": False,
-                "erro": "Sessão expirada. Rode o login novamente."
-            }
-
+    with _automation_lock, browser.pagina() as page:
+        pasta_execucao = criar_pasta_execucao()
+        pasta_geral = pasta_execucao / "00_execucao"
+        pasta_geral.mkdir(parents=True, exist_ok=True)
         try:
-
-            from automation.pages.condominio_page import CondominioPage
-
-            cond = CondominioPage(page, selectors, browser)
-
-            cond.trocar(condominio)
-
-            cond.validar_ativo(condominio)
-
-        except SeletorIndisponivelError as e:
-
+            LoginPage(page).autenticar()
+            login_ev = salvar_evidencia(page, "login_concluido", pasta=pasta_geral)
+            estabelecimento = EstabelecimentoPage(page, selectors)
+            if estabelecimento.esta_na_tela():
+                estabelecimento.entrar(condominio)
+            CondominioPage(page, selectors, browser).validar_ativo(
+                condominio,
+                pasta_evidencia=pasta_geral,
+            )
             return {
-                "ok": False,
-                "erro": str(e)
+                "ok": True,
+                "mensagem": "Condominio validado.",
+                "evidencias": [str(login_ev)],
             }
+        except SeletorIndisponivelError as exc:
+            try:
+                salvar_evidencia(page, "erro_seletor", pasta=pasta_geral)
+            except Exception:
+                log.exception("Falha ao evidenciar erro de seletor")
+            return {"ok": False, "erro": str(exc)}
+        except Exception as exc:
+            try:
+                salvar_evidencia(page, "erro_validacao", pasta=pasta_geral)
+            except Exception:
+                log.exception("Falha ao evidenciar erro de validacao")
+            log.exception("Falha ao validar condominio")
+            return {"ok": False, "erro": str(exc)}
 
-        except Exception as e:
 
-            return {
-                "ok": False,
-                "erro": str(e)
-            }
+def executar_lancamento_json(
+    dados: dict[str, Any],
+    confirmar: bool | None = None,
+    cond: str | None = None,
+) -> dict[str, Any]:
+    if not cond:
+        return {"ok": False, "erro": "Condominio nao informado."}
 
-        return {
-            "ok": True,
-            "mensagem": "Condomínio validado."
-        }
-
-
-def executar_lancamento_json( dados: str, confirmar: bool = False, cond: str = None, ) -> dict[str, Any]:
     selectors = Selectors()
     browser = BrowserManager()
+    dry_run = resolver_dry_run(confirmar)
 
-    dry_run = not confirmar
-    with browser.pagina() as page:
-        page.goto(settings.almah_base_url)
+    with _automation_lock, browser.pagina() as page:
+        pasta_execucao = criar_pasta_execucao()
+        pasta_geral = pasta_execucao / "00_execucao"
+        pasta_geral.mkdir(parents=True, exist_ok=True)
+        evidencias_gerais: list[str] = []
+        # A partir daqui tudo ocorre na mesma pagina e no mesmo contexto:
+        # login -> estabelecimento/condominio -> contas a pagar -> lancamento.
+        try:
+            LoginPage(page).autenticar()
+            login_ev = salvar_evidencia(page, "login_concluido", pasta=pasta_geral)
+            evidencias_gerais.append(str(login_ev))
+            resultado = executar_lancamento(
+                page,
+                browser,
+                selectors,
+                dados,
+                dry_run=dry_run,
+                condominio=cond,
+                pasta_execucao=pasta_execucao,
+            )
+        except Exception:
+            try:
+                erro_ev = salvar_evidencia(page, "erro_execucao", pasta=pasta_geral)
+                evidencias_gerais.append(str(erro_ev))
+            except Exception:
+                log.exception("Falha ao evidenciar erro geral da execucao")
+            raise
 
-        page.wait_for_load_state("networkidle")
-
-        if not browser.esta_logado(page, selectors):
-            return {
-                "ok": False,
-                "erro": "Sessão expirada. Rode o login novamente."
-            }
-
-        resultado = executar_lancamento(
-            page,
-            browser,
-            selectors,
-            dados,
-            dry_run=dry_run,
-            condominio=cond,
-        )
+        resultado.evidencias = evidencias_gerais + resultado.evidencias
 
         return {
             "ok": resultado.ok,
             "status": resultado.status,
             "mensagem": resultado.mensagem,
             "evidencias": resultado.evidencias,
+            "itens": resultado.itens,
+            "total": len(resultado.itens),
+            "sucessos": sum(1 for item in resultado.itens if item.get("ok")),
+            "erros": sum(1 for item in resultado.itens if not item.get("ok")),
         }

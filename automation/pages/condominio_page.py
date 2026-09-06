@@ -7,6 +7,8 @@ exatamente o esperado. A confirmação usa dois sinais independentes:
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 from playwright.sync_api import Page
 
 from automation.browser import BrowserManager
@@ -73,7 +75,8 @@ class CondominioPage(BasePage):
         return ""
 
     def validar_ativo(self, nome_esperado: str, lancamento_ref: str = "geral",
-                      tentativas: int = 12, intervalo_ms: int = 700) -> None:
+                      tentativas: int = 12, intervalo_ms: int = 700,
+                      pasta_evidencia: Path | None = None) -> None:
         """Confere o condomínio ativo de forma PACIENTE: relê o nome algumas
         vezes (a tela pode levar 1-2s para assentar no condomínio após a entrada).
         NÃO troca de condomínio — a seleção já foi feita na tela de entrada.
@@ -82,12 +85,22 @@ class CondominioPage(BasePage):
         for _ in range(tentativas):
             ultimo = self._ler_nome_ativo_curto()
             if ultimo and nomes_equivalentes(ultimo, nome_esperado):
-                salvar_evidencia(self.page, "condominio_ativo_ok", lancamento_ref)
+                salvar_evidencia(
+                    self.page,
+                    "condominio_ativo_ok",
+                    lancamento_ref,
+                    pasta=pasta_evidencia,
+                )
                 log.info("Condomínio ativo confirmado: %s", nome_esperado)
                 return
             self.page.wait_for_timeout(intervalo_ms)
 
-        salvar_evidencia(self.page, "condominio_divergente", lancamento_ref)
+        salvar_evidencia(
+            self.page,
+            "condominio_divergente",
+            lancamento_ref,
+            pasta=pasta_evidencia,
+        )
         raise CondominioDivergenteError(
             f"Condomínio ativo diverge do esperado '{nome_esperado}'. "
             f"Lido na tela: '{ultimo}'. Processo interrompido."

@@ -1,18 +1,24 @@
+from __future__ import annotations
+
+import json
+import re
+import shutil
 import tempfile
 from pathlib import Path
-from pandas import read_csv
+
+from flask import Blueprint, jsonify, render_template, request
+from werkzeug.utils import secure_filename
+
 from api.db import db
-from flask import Blueprint, jsonify, redirect, render_template, request, url_for
-from api.models import Fornecedores
 from api.ia import ler_documento
-import re
-from os import path
-from json import dumps
-from api.services import executar_lancamento_json, iniciar_login_manual
-from api.models import Condominios
+from api.models import Condominios, Fornecedores
+from api.services import executar_lancamento_json
+from automation.pages.contas_pagar_page import fornecedor_e_copel, fornecedor_e_sanepar
 from core.config.settings import settings
+from core.logging.logger import get_logger
 
 bp = Blueprint("main", __name__)
+log = get_logger("routes")
 
 
 def register_routes(app) -> None:
@@ -21,13 +27,7 @@ def register_routes(app) -> None:
 
 @bp.route("/", methods=["GET"])
 def ui() -> str:
-    return render_template("index.html")
-
-
-@bp.route("/gravar", methods=["GET"])
-def gravar_login():
-    iniciar_login_manual()
-    return redirect(url_for("main.ui"))
+    return render_template("index.html", dry_run=settings.dry_run)
 
 
 @bp.route("/condominios", methods=["GET"])
@@ -37,13 +37,9 @@ def condominios() -> tuple:
 
 
 @bp.route("/fornecedores", methods=["POST"])
-def getForns():
-    forns = (
-        db.session.query(Fornecedores.codigo, Fornecedores.nome)
-        .select_from(Fornecedores)
-        .all()
-    )
-    return jsonify([f._asdict() for f in forns]), 200
+def fornecedores() -> tuple:
+    itens = db.session.query(Fornecedores.codigo, Fornecedores.nome).all()
+    return jsonify([item._asdict() for item in itens]), 200
 
 
 @bp.route("/validar-condominio", methods=["POST"])
@@ -51,33 +47,105 @@ def validar_condominio_route() -> tuple:
     from api.services import validar_condominio
 
     payload = request.get_json(silent=True) or {}
-    condominio = payload.get("condominio")
-
+    condominio = str(payload.get("condominio") or "").strip()
     if not condominio:
-        return jsonify({"detail": "Campo 'condominio' é obrigatório."}), 400
+        return jsonify({"detail": "Campo 'condominio' e obrigatorio."}), 400
 
     resultado = validar_condominio(condominio)
     if not resultado.get("ok"):
         return jsonify({"detail": resultado.get("erro")}), 400
-
     return jsonify(resultado), 200
 
 
-# Use para testes evita gasto com Token
-# com 1 arquivo
-# extracao = {'documentos': [{'condominio': 'COND. EDF. ANDARAI', 'fornecedor_codigo': 226, 'fornecedor_nome': 'ARTGAZ COMERCIO DE GAS LTDA', 'competencia': '05/2026', 'documento_referencia': 'REF. 05/2026', 'valor_liquido': 409.38, 'vencimento': '10/06/2026', 'prev_pagto': None, 'emissao': '27/05/2026', 'anexos': ['C:\\Users\\Guilherme\\Documents\\Meka-RPA\\data\\pdfs\\meka_upload_t28jsucn\\BOLETO - ARTGAZ.pdf']}]}
+def _nome_fornecedor(nome_arquivo: str) -> str:
+    nome = Path(nome_arquivo).stem.upper()
+    nome = re.sub(r"[\W_]+", " ", nome, flags=re.UNICODE)
+    termos_documento = (
+        "BOLETO",
+        "HOLERITE",
+        "COMPROVANTE",
+        "FATURA",
+        "RECIBO",
+        "NOTA FISCAL",
+        "NF",
+    )
+    for termo in termos_documento:
+        nome = re.sub(rf"\b{re.escape(termo)}\b", " ", nome)
 
-# com 2 arquivos
-# extracao = {'documentos': [{'condominio': 'COND. EDF. ANDARAI', 'fornecedor_codigo': 226, 'fornecedor_nome': 'ARTGAZ COMERCIO DE GAS LTDA', 'competencia': '05/2026', 'documento_referencia': 'REF. 05/2026', 'valor_liquido': 409.38, 'vencimento': '10/06/2026', 'prev_pagto': None, 'emissao': '27/05/2026', 'anexos': ['C:\\Users\\Guilherme\\Documents\\Meka-RPA\\data\\pdfs\\meka_upload_6wzqhfqt\\BOLETO - ARTGAZ.pdf']}, {'condominio': 'CONDOMINIO EDIFICIO ANDARARI', 'fornecedor_codigo': 335, 'fornecedor_nome': 'CLARO NXT TELECOMUNICACOES S/A', 'competencia': '04/2026', 'documento_referencia': 'REF. 04/2026', 'valor_liquido': 74.9, 'vencimento': '10/05/2026', 'prev_pagto': None, 'emissao': '22/04/2026', 'anexos': ['C:\\Users\\Guilherme\\Documents\\Meka-RPA\\data\\pdfs\\meka_upload_6wzqhfqt\\BOLETO CLARO.pdf']}]}
+    # Remove sufixos de copia como _2 e transforma _, hifens e pontuacao
+    # em espacos. Ex.: FATURA_-_COPEL_2.pdf -> COPEL.
+    nome = re.sub(r"\d+", " ", nome)
+    return re.sub(r"\s+", " ", nome).strip()
+
+
+def _localizar_fornecedor(nome: str) -> Fornecedores | None:
+    if not nome:
+        return None
+    candidatos = Fornecedores.query.filter(Fornecedores.nome.contains(nome)).all()
+    return next(
+        (item for item in candidatos if nome.casefold() in item.nome.casefold()),
+        None,
+    )
+
+
+def _erro_item(nome_arquivo: str, mensagem: str, indice: int) -> dict:
+    return {
+        "indice": indice,
+        "ok": False,
+        "status": "erro",
+        "mensagem": mensagem,
+        "fornecedor": "Fornecedor nao identificado",
+        "referencia": "",
+        "arquivos": [nome_arquivo],
+        "evidencias": [],
+    }
+
+
+def _resumo_lote(itens: list[dict], evidencias: list[str] | None = None) -> dict:
+    sucessos = sum(1 for item in itens if item.get("ok"))
+    erros = len(itens) - sucessos
+    return {
+        "ok": erros == 0,
+        "status": "concluido" if not erros else "parcial" if sucessos else "erro",
+        "mensagem": f"Lote concluido: {sucessos} sucesso(s) e {erros} erro(s).",
+        "total": len(itens),
+        "sucessos": sucessos,
+        "erros": erros,
+        "itens": itens,
+        "evidencias": evidencias or [],
+    }
+
+
+def _extrair_documentos_sem_agrupar_utilidades(dados: list[dict]) -> dict:
+    """COPEL/SANEPAR sao processadas arquivo a arquivo por regra de negocio."""
+    agrupaveis: list[dict] = []
+    isolados: list[dict] = []
+    for item in dados:
+        fornecedor = item.get("fornecedor")
+        destino = (
+            isolados
+            if fornecedor_e_copel(fornecedor) or fornecedor_e_sanepar(fornecedor)
+            else agrupaveis
+        )
+        destino.append(item)
+    documentos: list[dict] = []
+
+    if agrupaveis:
+        documentos.extend((ler_documento(agrupaveis) or {}).get("documentos", []))
+    for item in isolados:
+        # Uma chamada por arquivo impede agrupamento mesmo se o modelo ignorar
+        # a instrucao textual do prompt.
+        documentos.extend((ler_documento([item]) or {}).get("documentos", []))
+    return {"documentos": documentos}
 
 
 @bp.route("/processar", methods=["POST"])
 def processar() -> tuple:
-    condominio = request.form.get("condominio").strip()
-    print(condominio)
-    if not condominio: return {"ok": False, "erro": "Condomínio não informado."}, 400
+    condominio = request.form.get("condominio", "").strip()
+    if not condominio:
+        return jsonify({"ok": False, "detail": "Condominio nao informado."}), 400
 
-    arquivos = request.files.getlist("files")
+    arquivos = [item for item in request.files.getlist("files") if item.filename]
     if not arquivos:
         return jsonify({"ok": False, "detail": "Selecione ao menos um PDF."}), 400
 
@@ -85,66 +153,71 @@ def processar() -> tuple:
     pasta_base.mkdir(parents=True, exist_ok=True)
     pasta = Path(tempfile.mkdtemp(prefix="meka_upload_", dir=str(pasta_base)))
 
-    nomes = []
-    for upload in arquivos:
-        if upload.filename:
-            destino = pasta / upload.filename
-            upload.save(destino)
-            nomes.append(destino.name)
-
     try:
-        pdfs = sorted(str(p) for p in pasta.glob("*.pdf"))
+        pdfs: list[tuple[Path, str]] = []
+        for indice, upload in enumerate(arquivos, start=1):
+            nome_seguro = secure_filename(upload.filename or "")
+            if not nome_seguro or Path(nome_seguro).suffix.lower() != ".pdf":
+                return jsonify({"ok": False, "detail": "Envie somente arquivos PDF validos."}), 400
+            destino = pasta / nome_seguro
+            if destino.exists():
+                destino = pasta / f"{indice:02d}_{nome_seguro}"
+            upload.save(destino)
+            pdfs.append((destino, upload.filename or nome_seguro))
+
         dados = []
-        for pdf in pdfs:
-            nomee = path.basename(pdf)
-            nome = path.splitext(nomee)[0]
-            nomef = nome.split("-")
-            if len(nomef) > 1:
-                nome = nomef[1]
+        erros_arquivo: list[dict] = []
+        for indice, (pdf, nome_original) in enumerate(pdfs, start=1):
+            nome = _nome_fornecedor(nome_original)
+            fornecedor = _localizar_fornecedor(nome)
+            if fornecedor is None:
+                erros_arquivo.append(_erro_item(
+                    nome_original,
+                    f"Fornecedor nao encontrado para o arquivo '{nome_original}'.",
+                    indice,
+                ))
+                continue
+            dados.append({
+                "fornecedor": fornecedor.nome,
+                "fornecedor_id": fornecedor.id,
+                "arquivo": str(pdf),
+            })
 
-            nome = (
-                nome.replace("BOLETO", "")
-                .replace("HOLERITE", "")
-                .replace("COMPROVANTE", "")
-                .replace("FATURA", "")
-                .replace("RECIBO", "")
-                .replace("NF", "")
-                .replace(",", "")
-                .replace(".", "")
-                .replace(".pdf", "")
-                .replace("pdf", "")
-            )
-
-            query = None
-            nome = re.sub(r"\d+", "", nome).strip()
-            queryNome = Fornecedores.query.filter(
-                Fornecedores.nome.contains(nome)
-            ).all()
-            for item in queryNome:
-                query = item if nome in item.nome else None
-            if not query:
-                return (
-                    jsonify({"ok": False, "detail": "Fornecedor não encontrado"}),
-                    404,
+        if dados:
+            log.info("Iniciando extracao de %d documento(s) com IA", len(dados))
+            extracao = _extrair_documentos_sem_agrupar_utilidades(dados)
+            log.info(f"A IA retornou:{json.dumps(extracao, indent=4)}")
+            log.info("Extracao concluida; iniciando login e automacao em lote")
+            resultado_automacao = executar_lancamento_json(extracao, cond=condominio)
+            itens_automacao = resultado_automacao.get("itens", [])
+            if not itens_automacao and not resultado_automacao.get("ok"):
+                mensagem = (
+                    resultado_automacao.get("mensagem")
+                    or resultado_automacao.get("erro")
+                    or "A IA nao retornou documentos validos para lancamento."
                 )
-            dados.append(
-                {"fornecedor": query.nome, "fornecedor_id": query.id, "arquivo": pdf}
+                itens_automacao = [
+                    _erro_item(Path(item["arquivo"]).name, mensagem, indice)
+                    for indice, item in enumerate(dados, start=1)
+                ]
+            itens = itens_automacao + erros_arquivo
+            resultado = _resumo_lote(
+                itens,
+                resultado_automacao.get("evidencias", []),
             )
+        else:
+            resultado = _resumo_lote(erros_arquivo)
 
-        print("INFO: Iniciando extração dos documentos com IA: ")
-        extracao = ler_documento(dados)
-        print("-" * 50)
-        print("INFO: Extração da IA: >> ")
-        print(extracao)
-        print("-" * 50)
-        print("INFO: Iniciando a automação")
-        resultado = executar_lancamento_json(extracao, cond=condominio)
-        print("INFO: Automação finalizada")
-        return (
-            jsonify(
-                {"ok": True, "message": "Sucesso com a automação", "res": resultado}
-            ),
-            200,
-        )
+        log.info("Automacao finalizada com status %s", resultado.get("status"))
+        return jsonify({
+            # A requisicao foi processada ate o fim mesmo quando alguns itens
+            # exigem revisao. O estado individual fica em res.itens.
+            "ok": True,
+            "message": resultado.get("mensagem"),
+            "res": resultado,
+        }), 200
     except Exception as exc:
+        log.exception("Falha no processamento")
         return jsonify({"ok": False, "detail": str(exc)}), 500
+    finally:
+        shutil.rmtree(pasta, ignore_errors=True)

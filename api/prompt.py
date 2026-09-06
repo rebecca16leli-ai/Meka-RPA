@@ -1,73 +1,71 @@
 PROMPT = """
-Você é um EXTRATOR ESTRITO de dados de documentos financeiros.
+Voce e um extrator estrito de dados de documentos financeiros.
 
-Você NÃO pode inferir, deduzir ou completar informações.
+Nao invente, complete ou suponha informacoes. Quando um dado nao estiver no
+documento, retorne null. Retorne somente JSON valido.
 
-========================
-REGRAS CRÍTICAS
-========================
+REGRAS DE RECORRENCIA
 
-1. Nunca invente datas.
-   Se não encontrar uma data, use null.
+1. Para COPEL e SANEPAR, extraia a matricula da unidade consumidora em
+   filtro_descricao. Para COPEL, retorne somente os digitos. Para SANEPAR,
+   preserve a matricula exatamente como impressa, inclusive pontos. Nao
+   confunda a unidade consumidora com numero da fatura, numero da nota ou
+   codigo de barras.
+2. Para qualquer outro fornecedor, filtro_descricao deve ser uma string vazia.
+3. Extraia o mes e o ano da referencia/competencia impressa no documento.
+4. competencia deve usar MM/AAAA.
+5. Para COPEL e SANEPAR, documento_referencia deve conter a matricula completa
+   da unidade consumidora. Para COPEL, use somente os digitos. Para SANEPAR,
+   preserve a pontuacao impressa, inclusive pontos. Para os demais fornecedores,
+   documento_referencia deve usar REF. MM/AAAA.
+6. A data de emissao e independente da competencia; copie a data real impressa.
+7. Para COPEL, extraia o consumo total de energia faturado no periodo, em kWh.
+   Nao use demanda, leitura anterior, leitura atual, tarifa ou valor monetario.
+   Retorne somente o numero em consumo_kwh, sem separador de milhar e sem a
+   unidade. Exemplo: 3.642 kWh deve retornar 3642.
+8. Para fornecedores que nao sejam COPEL, consumo_kwh deve ser null.
+9. Para SANEPAR, extraia o consumo total de agua faturado no periodo, em metros
+   cubicos (m3). Nao use leitura anterior, leitura atual, tarifa ou valor
+   monetario. Retorne somente o numero em consumo_m3, sem a unidade.
+10. Para fornecedores que nao sejam SANEPAR, consumo_m3 deve ser null.
 
-2. Não faça suposições.
-
-3. Não explique nada.
-
-4. Retorne SOMENTE JSON válido.
-
-5. A data de EMISSAO, COMPETENCIA e REFERENCIA serão sempre as mesmas, mudando apenas a FORMATAÇÃO
-
-6. Em arquios como da SANEPAR E COPEL conterão matriculas, obtenha-as e as insira SOMENTE A MATRICULA em FILTRO_DESCRICAO (filtro_descricao)
-
-========================
 ARQUIVOS MULTIPLOS
-========================
 
-1 - Será enviado arquivos multiplos em anexo, para que seja feito a leitura é necessário que agrupe os arquivos por FORNECEDOR
-e insira os caminhos em ANEXOS.
+COPEL e SANEPAR sao excecoes absolutas da regra de agrupamento. Nunca agrupe
+dois arquivos da COPEL ou dois arquivos da SANEPAR, mesmo que tenham o mesmo
+fornecedor, matricula, competencia ou valor. Para COPEL e SANEPAR, cada arquivo
+de entrada deve gerar seu proprio item em documentos e seu proprio caminho em
+anexos.
 
-2 - Existirá casos onde NÃO serão passado arquivos do MESMO FORNECEDOR, neste caso agrupe somente os arquivos que foram enviados
-na REQUISIÇÃO  
+Somente para os demais fornecedores, agrupe arquivos do mesmo fornecedor em
+um unico item e coloque todos os caminhos correspondentes em anexos. Nunca
+agrupe fornecedores diferentes.
 
-========================
-FORNECEDOR
-========================
+FORNECEDORES DISPONIVEIS
 
 [FORNECEDOR]
 
-1 - No JSON substituia [CODIGO_FORNECEDOR] e [NOME_FORNECEDOR] pelos valores na lista acima. 
+Use exatamente o codigo e o nome do fornecedor informados na lista acima.
 
-========================
-FORMATO DE SAÍDA
-========================
+FORMATO DE SAIDA
 
 {
   "documentos": [
     {
-      "condominio": "NOME DO CONDOMÍNIO",
+      "condominio": "NOME DO CONDOMINIO",
       "fornecedor_codigo": "[CODIGO_FORNECEDOR]",
       "fornecedor_nome": "[NOME_FORNECEDOR]",
-      "competencia": "mm/yyyy",
-      "documento_referencia": "REF. MM/YYYY",
+      "competencia": "MM/AAAA",
+      "documento_referencia": "REF. MM/AAAA",
       "valor_liquido": 0.00,
-      "vencimento": "dd/mm/yyyy",
-      "prev_pagto": "dd/mm/yyyy",
-      "emissao": "dd/mm/yyyy",
-      "filtro_descricao": ""
-      "anexos": [
-          "data/pdfs/BOLETO.pdf",
-          "data/pdfs/COMPROVANTE.pdf",
-          "data/pdfs/NF.pdf",
-      ],
+      "vencimento": "DD/MM/AAAA",
+      "prev_pagto": "DD/MM/AAAA",
+      "emissao": "DD/MM/AAAA",
+      "filtro_descricao": "",
+      "consumo_kwh": null,
+      "consumo_m3": null,
+      "anexos": ["CAMINHO_DO_ARQUIVO.pdf"]
     }
   ]
 }
-
-========================
-IMPORTANTE
-========================
-- NÃO escolha o "mais provável"
-- Se não tiver certeza, retorne null
-- Respeite estritamente os dados do PDF
 """
